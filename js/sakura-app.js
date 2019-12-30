@@ -2,28 +2,28 @@
  * Sakura application bundle
  * @author Nebulino
  * @url https://nebulino.cloud
- * @date 2018.06.05
+ * @date 2019.8.3
  */
-
 mashiro_global.variables = new function () {
-    this.has_bot_ui = false;
-    this.isNight = false;
-    this.skinSecter = false;
+    this.skinSecter = true;
 }
 mashiro_global.ini = new function () {
     this.normalize = function () {
         lazyload();
         social_share();
-        mashiro_global.post_list_show_animation.ini();
+        post_list_show_animation();
         copy_code_block();
         coverVideoIni();
+        checkskinSecter();
+        scrollBar();
     }
     this.pjax = function () {
         pjaxInit();
         social_share();
-        mashiro_global.post_list_show_animation.ini();
+        post_list_show_animation();
         copy_code_block();
         coverVideoIni();
+        checkskinSecter();
     }
 }
 
@@ -55,43 +55,44 @@ function removeCookie(name) {
 function imgError(ele, type) {
     switch (type) {
         case 1:
-            ele.src = 'https://view.moezx.cc/images/2017/12/30/Transparent_Akkarin.th.jpg';
+            ele.src = 'https://cdn.jsdelivr.net/gh/MaiAtsumi/WoahCDN@1.2.3/Cherry-Blossoms/apis/Transparent_Akkarin.th.jpg';
             break;
         case 2:
-            ele.src = 'https://gravatar.shino.cc/avatar/?s=80&d=mm&r=g';
+            ele.src = 'https://cdn.jsdelivr.net/gh/MaiAtsumi/WoahCDN@1.2.3/Cherry-Blossoms/apis/none.png';
             break;
         default:
-            ele.src = 'https://view.moezx.cc/images/2018/05/13/image-404.png';
+            ele.src = 'https://cdn.jsdelivr.net/gh/MaiAtsumi/WoahCDN@1.2.3/Cherry-Blossoms/apis/image-404.png';
     }
 }
 
-mashiro_global.post_list_show_animation = new function () {
-    this.ini = function (ajax) {
-        $("article.post-list-thumb").each(function (i) {
-            if (ajax) {
-                var window_height = $(window).height();
-            } else {
-                if ($(".headertop").hasClass("headertop-bar")) {
-                    var window_height = 0;
+function post_list_show_animation() {
+    if ($("article").hasClass("post-list-thumb")) {
+        var options = {
+            root: null,
+            threshold: [0.66]
+        }
+        var io = new IntersectionObserver(callback, options);
+        var articles = document.querySelectorAll('.post-list-thumb');
+
+        function callback(entries) {
+            entries.forEach((article) => {
+                if (article.target.classList.contains("post-list-show")) {
+                    io.unobserve(article.target)
                 } else {
-                    if (mashiro_option.land_at_home) {
-                        var window_height = $(window).height() - 300;
-                    } else {
-                        var window_height = $(window).height();
+                    if (article.isIntersecting) {
+                        article.target.classList.add("post-list-show");
+                        io.unobserve(article.target)
                     }
                 }
-            }
-            var article_height = $("article.post-list-thumb").eq(i).offset().top;
-            if ($(window).height() + $(window).scrollTop() >= article_height)
-                $("article.post-list-thumb").eq(i).addClass('post-list-show');
-            $(window).scroll(function () {
-                var scrolltop = $(window).scrollTop();
-                if (scrolltop + window_height >= article_height && scrolltop)
-                    $("article.post-list-thumb").eq(i).addClass("post-list-show");
-            });
-        });
+            })
+        }
+
+        articles.forEach((article) => {
+            io.observe(article)
+        })
     }
 }
+
 mashiro_global.font_control = new function () {
     this.change_font = function () {
         if ($("body").hasClass("serif")) {
@@ -170,6 +171,7 @@ if (Poi.reply_link_version == 'new') {
 }
 
 function attach_image() {
+    var cached = $('.insert-image-tips');
     $('#upload-img-file').change(function () {
         if (this.files.length > 10) {
             addComment.createButterbar("The maximum upload limit is 10 files per request.");
@@ -183,34 +185,44 @@ function attach_image() {
         for (var i = 0; i < this.files.length; i++) {
             var f = this.files[i];
             var formData = new FormData();
-            formData.append('smfile', f);
+            formData.append('cmt_img_file', f);
             $.ajax({
-                url: 'https://sm.ms/api/upload',
+                url: Poi.api + 'sakura/v1/image/upload?_wpnonce=' + Poi.nonce,
                 type: 'POST',
                 processData: false,
                 contentType: false,
                 data: formData,
                 beforeSend: function (xhr) {
-                    $('.insert-image-tips').html('<i class="fa fa-spinner rotating" aria-hidden="true"></i>');
+                    cached.html('<i class="fa fa-spinner rotating" aria-hidden="true"></i>');
                     addComment.createButterbar("Uploading...");
                 },
                 success: function (res) {
-                    $('.insert-image-tips').html('<i class="fa fa-check" aria-hidden="true"></i>');
+                    cached.html('<i class="fa fa-check" aria-hidden="true"></i>');
                     setTimeout(function () {
-                        $('.insert-image-tips').html('<i class="fa fa-picture-o" aria-hidden="true"></i>');
+                        cached.html('<i class="fa fa-picture-o" aria-hidden="true"></i>');
                     }, 1000);
-                    var get_the_url = res.data.url;
-                    $('#upload-img-show').append('<img class="lazyload upload-image-preview" src="https://cdn.jsdelivr.net/gh/moezx/cdn@3.0.2/img/svg/loader/trans.ajax-spinner-preloader.svg" data-src="' + get_the_url + '" onclick="window.open(\'' + get_the_url + '\')" onerror="imgError(this)" />');
-                    lazyload();
-                    addComment.createButterbar("Uploaded successfully~");
-                    grin(res.data.url.replace('https://i.loli.net/', '{UPLOAD}'), type = 'Img');
+                    if (res.status == 200) {
+                        var get_the_url = res.proxy;
+                        $('#upload-img-show').append('<img class="lazyload upload-image-preview" src="https://cdn.jsdelivr.net/gh/MaiAtsumi/WoahCDN@1.2.3/assets/svg/loader/trans.ajax-spinner-preloader.svg" data-src="' + get_the_url + '" onclick="window.open(\'' + get_the_url + '\')" onerror="imgError(this)" />');
+                        lazyload();
+                        addComment.createButterbar("Uploaded successfully~");
+                        grin(get_the_url, type = 'Img');
+                    } else {
+                        addComment.createButterbar("Uploaded failed! Filename: " + f.name + "<br>code: " + res.status + "<br>" + res.message, 3000);
+                    }
                 },
-                error: function () {
-                    $('.insert-image-tips').html('<i class="fa fa-times" aria-hidden="true" style="color:red"></i>');
+                error: function (jqXHR, textStatus, errorThrown) {
+                    cached.html('<i class="fa fa-times" aria-hidden="true" style="color:red"></i>');
                     alert("Upload failed, please try again.");
                     setTimeout(function () {
-                        $('.insert-image-tips').html('<i class="fa fa-picture-o" aria-hidden="true"></i>');
+                        cached.html('<i class="fa fa-picture-o" aria-hidden="true"></i>');
                     }, 1000);
+                    // console.info(jqXHR.responseText);
+                    // console.info(jqXHR.status);
+                    // console.info(jqXHR.readyState);
+                    // console.info(jqXHR.statusText);
+                    // console.info(textStatus);
+                    // console.info(errorThrown);
                 }
             })
         }
@@ -222,7 +234,7 @@ function clean_upload_images() {
 }
 
 function add_upload_tips() {
-    $('<div class="insert-image-tips popup"><i class="fa fa-picture-o" aria-hidden="true"></i><span class="insert-img-popuptext" id="uploadTipPopup">Upload image</span></div><input id="upload-img-file" type="file" accept="image/*" multiple="multiple" class="insert-image-button">').insertAfter($(".form-submit #submit"));
+    $('<div class="insert-image-tips popup"><i class="fa fa-picture-o" aria-hidden="true"></i><span class="insert-img-popuptext" id="uploadTipPopup">Upload Image</span></div><input id="upload-img-file" type="file" accept="image/*" multiple="multiple" class="insert-image-button">').insertAfter($(".form-submit #submit"));
     attach_image();
     $("#upload-img-file").hover(function () {
         $(".insert-image-tips").addClass("insert-image-tips-hover");
@@ -235,7 +247,7 @@ function add_upload_tips() {
 
 function click_to_view_image() {
     $(".comment_inline_img").click(function () {
-        var temp_url = $(this).attr('src');
+        var temp_url = this.src;
         window.open(temp_url);
     });
 }
@@ -266,26 +278,27 @@ function cmt_showPopup(ele) {
 function scrollBar() {
     if (document.body.clientWidth > 860) {
         $(window).scroll(function () {
-            var s = $(window).scrollTop();
-            var a = $(document).height();
-            var b = $(window).height();
-            var result = parseInt(s / (a - b) * 100);
-            $("#bar").css("width", result + "%");
+            var s = $(window).scrollTop(),
+                a = $(document).height(),
+                b = $(window).height(),
+                result = parseInt(s / (a - b) * 100),
+                cached = $("#bar");
+            cached.css("width", result + "%");
             if (false) {
                 if (result >= 0 && result <= 19)
-                    $("#bar").css("background", "#cccccc");
+                    cached.css("background", "#cccccc");
                 if (result >= 20 && result <= 39)
-                    $("#bar").css("background", "#50bcb6");
+                    cached.css("background", "#50bcb6");
                 if (result >= 40 && result <= 59)
-                    $("#bar").css("background", "#85c440");
+                    cached.css("background", "#85c440");
                 if (result >= 60 && result <= 79)
-                    $("#bar").css("background", "#f2b63c");
+                    cached.css("background", "#f2b63c");
                 if (result >= 80 && result <= 99)
-                    $("#bar").css("background", "#FF0000");
+                    cached.css("background", "#FF0000");
                 if (result == 100)
-                    $("#bar").css("background", "#5aaadb");
+                    cached.css("background", "#5aaadb");
             } else {
-                $("#bar").css("background", "orange");
+                cached.css("background", "orange");
             }
             $(".toc-container").css("height", $(".site-content").outerHeight());
             $(".skin-menu").removeClass('show');
@@ -293,36 +306,29 @@ function scrollBar() {
     }
 }
 
-scrollBar();
-'The theme switching code is a mess, I must refactor when I have time...';
+function checkskinSecter() {
+    if (mashiro_global.variables.skinSecter === false) {
+        $(".pattern-center").removeClass('pattern-center').addClass('pattern-center-sakura');
+        $(".headertop-bar").removeClass('headertop-bar').addClass('headertop-bar-sakura');
+    } else {
+        $(".pattern-center-sakura").removeClass('pattern-center-sakura').addClass('pattern-center');
+        $(".headertop-bar-sakura").removeClass('headertop-bar-sakura').addClass('headertop-bar');
+    }
+}
 
 function checkBgImgCookie() {
     var bgurl = getCookie("bgImgSetting");
-    if (bgurl != "") {
-        if (bgurl == "https://view.moezx.cc/images/2018/01/03/sakura.png" || bgurl == "https://view.moezx.cc/images/2018/01/03/plaid2dbf8.jpg" || bgurl == "https://view.moezx.cc/images/2018/01/10/star02.png" || bgurl == "https://view.moezx.cc/images/2018/01/24/kyotoanimation.png" || bgurl == "https://view.moezx.cc/images/2018/03/27/dot_orange.gif") {
-            mashiro_global.variables.skinSecter = true;
-            mashiro_global.variables.isNight = false;
-            $("#night-mode-cover").css("visibility", "hidden");
-            $("body").css("background-image", "url(" + bgurl + ")");
-            $(".blank").css("background-color", "rgba(255,255,255,1)");
-            $(".pattern-center").removeClass('pattern-center').addClass('pattern-center-sakura');
-            $(".headertop-bar").removeClass('headertop-bar').addClass('headertop-bar-sakura');
-        } else if (bgurl == "https://api.shino.cc/bing/") {
-            mashiro_global.variables.skinSecter = true;
-            mashiro_global.variables.isNight = true;
-            $("#night-mode-cover").css("visibility", "hidden");
-            $("body").css("background-image", "url(" + bgurl + ")");
-            $(".blank").css("background-color", "rgba(255,255,255,1)");
-            $(".pattern-center").removeClass('pattern-center').addClass('pattern-center-sakura');
-            $(".headertop-bar").removeClass('headertop-bar').addClass('headertop-bar-sakura');
-        } else {
-        }
+    if (!bgurl) {
+        $("#white-bg").click();
     } else {
+        $("#" + bgurl).click();
     }
 }
 
 if (document.body.clientWidth > 860) {
-    checkBgImgCookie();
+    setTimeout(function () {
+        checkBgImgCookie();
+    }, 100);
 }
 
 function no_right_click() {
@@ -332,87 +338,70 @@ function no_right_click() {
 }
 
 no_right_click();
-if (mashiro_global.variables.isNight) {
-    $(".changeSkin-gear, .toc").css("background", "rgba(255,255,255,0.8)");
-} else {
-    $(".changeSkin-gear, .toc").css("background", "none");
-}
 $(document).ready(function () {
-    function changeBG(tagid, url) {
-        $(".skin-menu " + tagid).click(function () {
-            mashiro_global.variables.skinSecter = true;
-            mashiro_global.variables.isNight = false;
-            $("#night-mode-cover").css("visibility", "hidden");
-            $("body").css("background-image", "url(" + url + ")");
-            $(".blank").css("background-color", "rgba(255,255,255,1)");
-            $(".pattern-center").removeClass('pattern-center').addClass('pattern-center-sakura');
-            $(".headertop-bar").removeClass('headertop-bar').addClass('headertop-bar-sakura');
-            closeSkinMenu();
-            setCookie("bgImgSetting", url, 30);
+    function checkskin_bg(a) {
+        return a == "none" ? "" : a
+    }
+
+    function changeBG() {
+        var cached = $(".menu-list");
+        cached.find("li").each(function () {
+            var tagid = this.id;
+            cached.on("click", "#" + tagid, function () {
+                if (tagid == "white-bg") {
+                    mashiro_global.variables.skinSecter = true;
+                    checkskinSecter();
+                } else {
+                    mashiro_global.variables.skinSecter = false;
+                    checkskinSecter();
+                }
+                if (tagid == "dark-bg") {
+                    $("#night-mode-cover").css("visibility", "visible");
+                } else
+                    $("#night-mode-cover").css("visibility", "hidden");
+                switch (tagid) {
+                    case "white-bg":
+                        $("body").css("background-image", "url(" + checkskin_bg(mashiro_option.skin_bg0) + ")");
+                        break;
+                    case "sakura-bg":
+                        $("body").css("background-image", "url(" + checkskin_bg(mashiro_option.skin_bg1) + ")");
+                        break;
+                    case "gribs-bg":
+                        $("body").css("background-image", "url(" + checkskin_bg(mashiro_option.skin_bg2) + ")");
+                        break;
+                    case "pixiv-bg":
+                        $("body").css("background-image", "url(" + checkskin_bg(mashiro_option.skin_bg3) + ")");
+                        break;
+                    case "KAdots-bg":
+                        $("body").css("background-image", "url(" + checkskin_bg(mashiro_option.skin_bg4) + ")");
+                        break;
+                    case "totem-bg":
+                        $("body").css("background-image", "url(" + checkskin_bg(mashiro_option.skin_bg5) + ")");
+                        break;
+                    case "bing-bg":
+                        $("body").css("background-image", "url(" + checkskin_bg(mashiro_option.skin_bg6) + ")");
+                        break;
+                    case "dark-bg":
+                        $("body").css("background-image", "url(" + checkskin_bg(mashiro_option.skin_bg7) + ")");
+                        break;
+                }
+                setCookie("bgImgSetting", tagid, 30);
+                closeSkinMenu();
+            });
         });
     }
 
-    function changeBGnoTrans(tagid, url) {
-        $(".skin-menu " + tagid).click(function () {
-            mashiro_global.variables.skinSecter = true;
-            mashiro_global.variables.isNight = true;
-            $("#night-mode-cover").css("visibility", "hidden");
-            $("body").css("background-image", "url(" + url + ")");
-            $(".blank").css("background-color", "rgba(255,255,255,1)");
-            $(".pattern-center").removeClass('pattern-center').addClass('pattern-center-sakura');
-            $(".headertop-bar").removeClass('headertop-bar').addClass('headertop-bar-sakura');
-            closeSkinMenu();
-            setCookie("bgImgSetting", url, 30);
-        });
-    }
-
-    changeBG("#sakura-bg", "https://view.moezx.cc/images/2018/01/03/sakura.png");
-    changeBG("#gribs-bg", "https://view.moezx.cc/images/2018/01/03/plaid2dbf8.jpg");
-    changeBG("#pixiv-bg", "https://view.moezx.cc/images/2018/01/10/star02.png");
-    changeBG("#KAdots-bg", "https://view.moezx.cc/images/2018/01/24/kyotoanimation.png");
-    changeBG("#totem-bg", "https://view.moezx.cc/images/2018/03/27/dot_orange.gif");
-    changeBGnoTrans("#bing-bg", "https://api.shino.cc/bing/");
-    $(".skin-menu #white-bg").click(function () {
-        mashiro_global.variables.skinSecter = false;
-        mashiro_global.variables.isNight = false;
-        $("#night-mode-cover").css("visibility", "hidden");
-        $("body").css("background-image", "none");
-        $(".blank").css("background-color", "rgba(255,255,255,.0)");
-        $(".pattern-center-sakura").removeClass('pattern-center-sakura').addClass('pattern-center');
-        $(".headertop-bar-sakura").removeClass('headertop-bar-sakura').addClass('headertop-bar');
-        closeSkinMenu();
-        setCookie("bgImgSetting", "Hello World!", 30);
-    });
-    $(".skin-menu #dark-bg").click(function () {
-        mashiro_global.variables.skinSecter = true;
-        mashiro_global.variables.isNight = true;
-        $("body").css("background-image", "url(https://cdn.jsdelivr.net/gh/moezx/cdn@3.1.2/other-sites/api-index/images/me.png)");
-        $(".blank").css("background-color", "rgba(255,255,255,.8)");
-        $("#night-mode-cover").css("visibility", "visible");
-        $(".pattern-center").removeClass('pattern-center').addClass('pattern-center-sakura');
-        $(".headertop-bar").removeClass('headertop-bar').addClass('headertop-bar-sakura');
-        closeSkinMenu();
-    });
+    changeBG();
 
     function closeSkinMenu() {
         $(".skin-menu").removeClass('show');
         setTimeout(function () {
             $(".changeSkin-gear").css("visibility", "visible");
         }, 300);
-        if (mashiro_global.variables.isNight) {
-            $(".changeSkin-gear, .toc").css("background", "rgba(255,255,255,0.8)");
-        } else {
-            $(".changeSkin-gear, .toc").css("background", "none");
-        }
     }
 
     $(".changeSkin-gear").click(function () {
         $(".skin-menu").toggleClass('show');
-        if (mashiro_global.variables.isNight) {
-            $(".changeSkin").css("background", "rgba(255,255,255,0.8)");
-        } else {
-            $(".changeSkin").css("background", "none");
-        }
     })
     $(".skin-menu #close-skinMenu").click(function () {
         closeSkinMenu();
@@ -446,9 +435,9 @@ if (document.body.clientWidth <= 860) {
 
     function scrollFunction() {
         if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
-            document.getElementById("moblieGoTop").style.display = "block";
+            addComment.I("moblieGoTop").style.display = "block";
         } else {
-            document.getElementById("moblieGoTop").style.display = "none";
+            addComment.I("moblieGoTop").style.display = "none";
         }
     }
 
@@ -458,21 +447,10 @@ if (document.body.clientWidth <= 860) {
     }
 }
 
-function reload_show_date_time() {
-    BirthDay = new Date("06/02/2017 18:00:00");
-    today = new Date();
-    timeold = (today.getTime() - BirthDay.getTime());
-    sectimeold = timeold / 1000
-    secondsold = Math.floor(sectimeold);
-    msPerDay = 24 * 60 * 60 * 1000
-    e_daysold = timeold / msPerDay
-    daysold = Math.floor(e_daysold);
-    monitorday.innerHTML = daysold;
-}
-
 function timeSeriesReload(flag) {
+    var cached = $('#archives');
     if (flag == true) {
-        $('#archives span.al_mon').click(function () {
+        cached.find('span.al_mon').click(function () {
             $(this).next().slideToggle(400);
             return false;
         });
@@ -482,26 +460,26 @@ function timeSeriesReload(flag) {
             $('#al_expand_collapse,#archives span.al_mon').css({
                 cursor: "s-resize"
             });
-            $('#archives span.al_mon').each(function () {
+            cached.find('span.al_mon').each(function () {
                 var num = $(this).next().children('li').length;
                 $(this).children('#post-num').text(num);
             });
-            var $al_post_list = $('#archives ul.al_post_list'),
-                $al_post_list_f = $('#archives ul.al_post_list:first');
+            var $al_post_list = cached.find('ul.al_post_list'),
+                $al_post_list_f = cached.find('ul.al_post_list:first');
             $al_post_list.hide(1, function () {
                 $al_post_list_f.show();
             });
-            $('#archives span.al_mon').click(function () {
+            cached.find('span.al_mon').click(function () {
                 $(this).next().slideToggle(400);
                 return false;
             });
             if (document.body.clientWidth > 860) {
-                $('#archives li.al_li').mouseover(function () {
+                cached.find('li.al_li').mouseover(function () {
                     $(this).children('.al_post_list').show(400);
                     return false;
                 });
                 if (false) {
-                    $('#archives li.al_li').mouseout(function () {
+                    cached.find('li.al_li').mouseout(function () {
                         $(this).children('.al_post_list').hide(400);
                         return false;
                     });
@@ -510,10 +488,10 @@ function timeSeriesReload(flag) {
             var al_expand_collapse_click = 0;
             $('#al_expand_collapse').click(function () {
                 if (al_expand_collapse_click == 0) {
-                    $al_post_list.show();
+                    $al_post_list.show(400);
                     al_expand_collapse_click++;
                 } else if (al_expand_collapse_click == 1) {
-                    $al_post_list.hide();
+                    $al_post_list.hide(400);
                     al_expand_collapse_click--;
                 }
             });
@@ -523,10 +501,10 @@ function timeSeriesReload(flag) {
 
 timeSeriesReload();
 
-
+/*视频feature*/
 function coverVideo() {
-    var video = document.getElementById("coverVideo");
-    var btn = document.getElementById("coverVideo-btn");
+    var video = addComment.I("coverVideo");
+    var btn = addComment.I("coverVideo-btn");
 
     if (video.paused) {
         video.play();
@@ -548,8 +526,8 @@ function coverVideo() {
 }
 
 function killCoverVideo() {
-    var video = document.getElementById("coverVideo");
-    var btn = document.getElementById("coverVideo-btn");
+    var video = addComment.I("coverVideo");
+    var btn = addComment.I("coverVideo-btn");
 
     if (video.paused) {
         //console.info('none:killCoverVideo()');
@@ -566,29 +544,33 @@ function killCoverVideo() {
 
 function coverVideoIni() {
     if ($('video').hasClass('hls')) {
-        var video = document.getElementById('coverVideo');
-        var video_src = $('#coverVideo').attr('data-src');
-        if (Hls.isSupported()) {
-            var hls = new Hls();
-            hls.loadSource(video_src);
-            hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, function () {
-                video.play();
-            });
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = video_src;
-            video.addEventListener('loadedmetadata', function () {
-                video.play();
-            });
-        }
+        $.getScript("https://cdn.jsdelivr.net/gh/mashirozx/Sakura@3.3.3/cdn/js/src/16.hls.js", function () {
+            var video = addComment.I('coverVideo');
+            var video_src = $('#coverVideo').attr('data-src');
+            if (Hls.isSupported()) {
+                var hls = new Hls();
+                hls.loadSource(video_src);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                    video.play();
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = video_src;
+                video.addEventListener('loadedmetadata', function () {
+                    video.play();
+                });
+            }
+        });
         //console.info('ini:coverVideoIni()');
     }
 }
 
 function copy_code_block() {
     $('pre code').each(function (i, block) {
-        $(block).attr({id: 'hljs-' + i});
-        $(this).after('<a class="copy-code" href="javascript:" data-clipboard-target="#hljs-' + i + '" title="Copy code"><i class="fa fa-clipboard" aria-hidden="true"></i></a>');
+        $(block).attr({
+            id: 'hljs-' + i
+        });
+        $(this).after('<a class="copy-code" href="javascript:" data-clipboard-target="#hljs-' + i + '" title="Copy Code"><i class="fa fa-clipboard" aria-hidden="true"></i></a>');
     });
     var clipboard = new ClipboardJS('.copy-code');
 }
@@ -599,28 +581,19 @@ function tableOfContentScroll(flag) {
     } else if ($("div").hasClass("have-toc") == false && $("div").hasClass("has-toc") == false) {
         $(".toc-container").remove();
     } else {
-        $(document).ready(function () {
-            if ($("div").hasClass("toc")) {
-                $(".toc-container").css("height", $(".site-content").outerHeight());
-                setTimeout(function () {
-                    $(".toc-container").css("height", $(".site-content").outerHeight());
-                }, 1000);
-                setTimeout(function () {
-                    $(".toc-container").css("height", $(".site-content").outerHeight());
-                }, 6000);
-            }
-        });
         if (flag) {
-            var id = 1;
+            var id = 1,
+                heading_fix = mashiro_option.entry_content_theme == "sakura" ? $("article").hasClass("type-post") ? $("div").hasClass("pattern-attachment-img") ? -75 : 200 : 375 : window.innerHeight / 2;
             $(".entry-content , .links").children("h1,h2,h3,h4,h5").each(function () {
                 var hyphenated = "toc-head-" + id;
-                $(this).attr('id', hyphenated);
+                this.id = hyphenated;
                 id++;
             });
             tocbot.init({
                 tocSelector: '.toc',
                 contentSelector: ['.entry-content', '.links'],
                 headingSelector: 'h1, h2, h3, h4, h5',
+                headingsOffset: heading_fix - window.innerHeight / 2,
             });
         }
     }
@@ -660,21 +633,6 @@ var pjaxInit = function () {
         }
         ;
     }
-    if ($("div").hasClass("popcontainer")) {
-        loadBotui();
-    }
-    try {
-        reload_show_date_time();
-    } catch (e) {
-    }
-    if (mashiro_global.variables.skinSecter === true) {
-        $(".pattern-center").removeClass('pattern-center').addClass('pattern-center-sakura');
-        $(".headertop-bar").removeClass('headertop-bar').addClass('headertop-bar-sakura');
-        if (mashiro_global.variables.isNight) {
-            $(".blank").css("background-color", "rgba(255,255,255,1)");
-            $(".toc").css("background-color", "rgba(255,255,255,0.8)");
-        }
-    }
     $('.iconflat').css('width', '50px').css('height', '50px');
     $('.openNav').css('height', '50px');
     $("#bg-next").click(function () {
@@ -687,7 +645,6 @@ var pjaxInit = function () {
     timeSeriesReload();
     add_copyright();
     tableOfContentScroll(flag = true);
-    console.log($("#myscript").text());
 }
 $(document).on("click", ".sm", function () {
     var msg = "Are you really going to be private?";
@@ -718,22 +675,6 @@ $.fn.commentPrivate = function () {
     }
 };
 
-function show_date_time() {
-    BirthDay = new Date("06/02/2017 18:00:00");
-    today = new Date();
-    timeold = (today.getTime() - BirthDay.getTime());
-    sectimeold = timeold / 1000
-    secondsold = Math.floor(sectimeold);
-    msPerDay = 24 * 60 * 60 * 1000
-    e_daysold = timeold / msPerDay
-    daysold = Math.floor(e_daysold);
-    monitorday.innerHTML = daysold;
-}
-
-try {
-    show_date_time();
-} catch (e) {
-}
 POWERMODE.colorful = true;
 POWERMODE.shake = false;
 document.body.addEventListener('input', POWERMODE);
@@ -778,8 +719,8 @@ function grin(tag, type, before, after) {
     } else {
         tag = ' :' + tag + ': ';
     }
-    if (document.getElementById('comment') && document.getElementById('comment').type == 'textarea') {
-        myField = document.getElementById('comment');
+    if (addComment.I('comment') && addComment.I('comment').type == 'textarea') {
+        myField = addComment.I('comment');
     } else {
         return false;
     }
@@ -803,13 +744,6 @@ function grin(tag, type, before, after) {
     }
 }
 
-if ($("div").hasClass("popcontainer")) {
-    loadBotui();
-}
-$("bot-ui").click(function () {
-    loadBotui();
-});
-
 function add_copyright() {
     document.body.addEventListener("copy", function (e) {
         if (window.getSelection().toString().length > 30 && mashiro_option.clipboardCopyright) {
@@ -820,7 +754,8 @@ function add_copyright() {
 
     function setClipboardText(event) {
         event.preventDefault();
-        var htmlData = "# For commercial use, please contact the author for authorization. For non-commercial use, please indicate the source.<br>" + "# License: Attribution - Noncommercial Use - Share in the Same Way 4.0 International (CC BY-NC-SA 4.0)<br>" + "# Author: " + mashiro_option.author_name + "<br>" + "# URL: " + window.location.href + "<br>" + "# Source: " + mashiro_option.site_name + "<br><br>" + window.getSelection().toString().replace(/\r\n/g, "<br>");;
+        var htmlData = "# For commercial use, please contact the author for authorization. For non-commercial use, please indicate the source.<br>" + "# License: Attribution - Noncommercial Use - Share in the Same Way 4.0 International (CC BY-NC-SA 4.0)<br>" + "# Author: " + mashiro_option.author_name + "<br>" + "# URL: " + window.location.href + "<br>" + "# Source: " + mashiro_option.site_name + "<br><br>" + window.getSelection().toString().replace(/\r\n/g, "<br>");
+        ;
         var textData = "# For commercial use, please contact the author for authorization. For non-commercial use, please indicate the source.\n" + "# License: Attribution - Noncommercial Use - Share in the Same Way 4.0 International (CC BY-NC-SA 4.0)\n" + "# Author: " + mashiro_option.author_name + "\n" + "# URL: " + window.location.href + "\n" + "# Source: " + mashiro_option.site_name + "\n\n" + window.getSelection().toString().replace(/\r\n/g, "\n");
         if (event.clipboardData) {
             event.clipboardData.setData("text/html", htmlData);
@@ -886,13 +821,25 @@ if (mashiro_option.float_player_on) {
                         lrcTag = 2;
                     });
                     var apSwitchTag = 0;
+                    var aplayerlist = $(".aplayer-list");
+                    aplayerlist.removeClass("aplayer-list-hide").css({
+                        maxHeight: '0px'
+                    });
                     $(".aplayer.aplayer-fixed .aplayer-body").addClass("ap-hover");
                     $(".aplayer-miniswitcher").click(function () {
                         if (apSwitchTag == 0) {
+                            aplayerlist.removeClass("aplayer-list-hide").animate({
+                                maxHeight: '250px'
+                            });
                             $(".aplayer.aplayer-fixed .aplayer-body").removeClass("ap-hover");
+                            $("#secondary").addClass("active");
                             apSwitchTag = 1;
                         } else {
+                            aplayerlist.css({
+                                maxHeight: '0px'
+                            });
                             $(".aplayer.aplayer-fixed .aplayer-body").addClass("ap-hover");
+                            $("#secondary").removeClass("active");
                             apSwitchTag = 0;
                         }
                     });
@@ -941,137 +888,135 @@ if (mashiro_option.float_player_on) {
 }
 
 function getqqinfo() {
-    var is_get_by_qq = false;
+    var is_get_by_qq = false,
+        cached = $('input');
     if (!getCookie('user_qq') && !getCookie('user_qq_email') && !getCookie('user_author')) {
-        $('input#qq,input#author,input#email,input#url').val('');
+        cached.filter('#qq,#author,#email,#url').val('');
     }
     if (getCookie('user_avatar') && getCookie('user_qq') && getCookie('user_qq_email')) {
         $('div.comment-user-avatar img').attr('src', getCookie('user_avatar'));
-        $('input#author').val(getCookie('user_author'));
-        $('input#email').val(getCookie('user_qq') + '@qq.com');
-        $('input#qq').val(getCookie('user_qq'));
+        cached.filter('#author').val(getCookie('user_author'));
+        cached.filter('#email').val(getCookie('user_qq') + '@qq.com');
+        cached.filter('#qq').val(getCookie('user_qq'));
         if (mashiro_option.qzone_autocomplete) {
-            $('input#url').val('https://user.qzone.qq.com/' + getCookie('user_qq'));
+            cached.filter('#url').val('https://user.qzone.qq.com/' + getCookie('user_qq'));
         }
-        if ($('input#qq').val()) {
+        if (cached.filter('#qq').val()) {
             $('.qq-check').css('display', 'block');
             $('.gravatar-check').css('display', 'none');
         }
     }
-    var emailAddressFlag = $('input#email').val();
-    $('input#author').on('blur', function () {
-        var qq = $('input#author').val();
+    var emailAddressFlag = cached.filter('#email').val();
+    cached.filter('#author').on('blur', function () {
+        var qq = cached.filter('#author').val();
         $.ajax({
             type: 'get',
-            url: mashiro_option.qq_api_url + '?type=getqqnickname&qq=' + qq,
-            dataType: 'jsonp',
-            jsonp: 'callback',
-            jsonpCallback: 'portraitCallBack',
+            url: mashiro_option.qq_api_url + '?qq=' + qq + '&_wpnonce=' + Poi.nonce,
+            dataType: 'json',
             success: function (data) {
-                $('input#author').val(data[qq][6]);
-                $('input#email').val($.trim(qq) + '@qq.com');
+                cached.filter('#author').val(data.name);
+                cached.filter('#email').val($.trim(qq) + '@qq.com');
                 if (mashiro_option.qzone_autocomplete) {
-                    $('input#url').val('https://user.qzone.qq.com/' + $.trim(qq));
+                    cached.filter('#url').val('https://user.qzone.qq.com/' + $.trim(qq));
                 }
                 $('div.comment-user-avatar img').attr('src', 'https://q2.qlogo.cn/headimg_dl?dst_uin=' + qq + '&spec=100');
                 is_get_by_qq = true;
-                $('input#qq').val($.trim(qq));
-                if ($('input#qq').val()) {
+                cached.filter('#qq').val($.trim(qq));
+                if (cached.filter('#qq').val()) {
                     $('.qq-check').css('display', 'block');
                     $('.gravatar-check').css('display', 'none');
                 }
-                setCookie('user_author', data[qq][6], 30);
+                setCookie('user_author', data.name, 30);
                 setCookie('user_qq', qq, 30);
                 setCookie('is_user_qq', 'yes', 30);
                 setCookie('user_qq_email', qq + '@qq.com', 30);
                 setCookie('user_email', qq + '@qq.com', 30);
-                emailAddressFlag = $('input#email').val();
+                emailAddressFlag = cached.filter('#email').val();
+                /***/
+                $('div.comment-user-avatar img').attr('src', data.avatar);
+                setCookie('user_avatar', data.avatar, 30);
             },
             error: function () {
-                $('input#qq').val('');
+                cached.filter('#qq').val('');
                 $('.qq-check').css('display', 'none');
                 $('.gravatar-check').css('display', 'block');
-                $('div.comment-user-avatar img').attr('src', get_gravatar($('input#email').val(), 80));
+                $('div.comment-user-avatar img').attr('src', get_gravatar(cached.filter('#email').val(), 80));
                 setCookie('user_qq', '', 30);
-                setCookie('user_email', $('input#email').val(), 30);
-                setCookie('user_avatar', get_gravatar($('input#email').val(), 80), 30);
-            }
-        });
-        $.ajax({
-            type: 'get',
-            url: mashiro_option.qq_avatar_api_url + '?type=getqqavatar&qq=' + qq,
-            dataType: 'jsonp',
-            jsonp: 'callback',
-            jsonpCallback: 'qqavatarCallBack',
-            success: function (data) {
-                $('div.comment-user-avatar img').attr('src', data[qq]);
-                setCookie('user_avatar', data[qq], 30);
-            },
-            error: function () {
-                $('input#qq', 'input#email', 'input#url').val('');
-                if (!$('input#qq').val()) {
+                setCookie('user_email', cached.filter('#email').val(), 30);
+                setCookie('user_avatar', get_gravatar(cached.filter('#email').val(), 80), 30);
+                /***/
+                cached.filter('#qq,#email,#url').val('');
+                if (!cached.filter('#qq').val()) {
                     $('.qq-check').css('display', 'none');
                     $('.gravatar-check').css('display', 'block');
                     setCookie('user_qq', '', 30);
-                    $('div.comment-user-avatar img').attr('src', get_gravatar($('input#email').val(), 80));
-                    setCookie('user_avatar', get_gravatar($('input#email').val(), 80), 30);
+                    $('div.comment-user-avatar img').attr('src', get_gravatar(cached.filter('#email').val(), 80));
+                    setCookie('user_avatar', get_gravatar(cached.filter('#email').val(), 80), 30);
                 }
             }
         });
+        // $.ajax({
+        //     type: 'get',
+        //     url: mashiro_option.qq_avatar_api_url + '?type=getqqavatar&qq=' + qq,
+        //     dataType: 'jsonp',
+        //     jsonp: 'callback',
+        //     jsonpCallback: 'qqavatarCallBack',
+        //     success: function (data) {
+        //         $('div.comment-user-avatar img').attr('src', data[qq]);
+        //         setCookie('user_avatar', data[qq], 30);
+        //     },
+        //     error: function () {
+        //         cached.filter('#qq,#email,#url').val('');
+        //         if (!cached.filter('#qq').val()) {
+        //             $('.qq-check').css('display', 'none');
+        //             $('.gravatar-check').css('display', 'block');
+        //             setCookie('user_qq', '', 30);
+        //             $('div.comment-user-avatar img').attr('src', get_gravatar(cached.filter('#email').val(), 80));
+        //             setCookie('user_avatar', get_gravatar(cached.filter('#email').val(), 80), 30);
+        //         }
+        //     }
+        // });
     });
     if (getCookie('user_avatar') && getCookie('user_email') && getCookie('is_user_qq') == 'no' && !getCookie('user_qq_email')) {
         $('div.comment-user-avatar img').attr('src', getCookie('user_avatar'));
-        $('input#email').val(getCookie('user_email'));
-        $('input#qq').val('');
-        if (!$('input#qq').val()) {
+        cached.filter('#email').val(getCookie('user_email'));
+        cached.filter('#qq').val('');
+        if (!cached.filter('#qq').val()) {
             $('.qq-check').css('display', 'none');
             $('.gravatar-check').css('display', 'block');
         }
     }
-    $('input#email').on('blur', function () {
-        var emailAddress = $('input#email').val();
+    cached.filter('#email').on('blur', function () {
+        var emailAddress = cached.filter('#email').val();
         if (is_get_by_qq == false || emailAddressFlag != emailAddress) {
             $('div.comment-user-avatar img').attr('src', get_gravatar(emailAddress, 80));
             setCookie('user_avatar', get_gravatar(emailAddress, 80), 30);
             setCookie('user_email', emailAddress, 30);
             setCookie('user_qq_email', '', 30);
             setCookie('is_user_qq', 'no', 30);
-            $('input#qq').val('');
-            if (!$('input#qq').val()) {
+            cached.filter('#qq').val('');
+            if (!cached.filter('#qq').val()) {
                 $('.qq-check').css('display', 'none');
                 $('.gravatar-check').css('display', 'block');
             }
         }
     });
     if (getCookie('user_url')) {
-        $('input#url').val(getCookie('user_url'));
+        cached.filter('#url').val(getCookie('user_url'));
     }
-    $('input#url').on('blur', function () {
-        var URL_Address = $('input#url').val();
-        $('input#url').val(URL_Address);
+    cached.filter('#url').on('blur', function () {
+        var URL_Address = cached.filter('#url').val();
+        cached.filter('#url').val(URL_Address);
         setCookie('user_url', URL_Address, 30);
     });
     if (getCookie('user_author')) {
-        $('input#author').val(getCookie('user_author'));
+        cached.filter('#author').val(getCookie('user_author'));
     }
-    $('input#author').on('blur', function () {
-        var user_name = $('input#author').val();
-        $('input#author').val(user_name);
+    cached.filter('#author').on('blur', function () {
+        var user_name = cached.filter('#author').val();
+        cached.filter('#author').val(user_name);
         setCookie('user_author', user_name, 30);
     });
-}
-
-function loadBotui() {
-    if ($('div').hasClass('popcontainer')) {
-        if (mashiro_global.variables.has_bot_ui) {
-            bot_ui_ini();
-        } else {
-            $.getScript('https://pages.shino.cc/cdn/js/botui/botui.js', function () {
-                bot_ui_ini();
-                mashiro_global.variables.has_bot_ui = true;
-            });
-        }
-    }
 }
 
 function mail_me() {
@@ -1079,32 +1024,17 @@ function mail_me() {
     window.open(mail);
 }
 
-/*
-var currentFontIsUbuntu = true;
-
-function changeFont() {
-    if (currentFontIsUbuntu) {
-        loadCSS("https://cdn.jsdelivr.net/gh/moezx/cdn@3.1.8/css/cn.css");
-        currentFontIsUbuntu = false;
+function activate_widget() {
+    if (document.body.clientWidth > 860) {
+        $('.show-hide').on('click', function () {
+            $("#secondary").toggleClass("active")
+        });
     } else {
-        loadCSS("https://cdn.jsdelivr.net/gh/moezx/cdn@3.1.8/css/or.css");
-        currentFontIsUbuntu = true;
+        $("#secondary").remove();
     }
 }
 
-function convertChinese(zh) {
-    if (zh == 'cn') {
-        $("#zh_cn").css("display", "none");
-        $("#zh_tw").css("display", "inline-block");
-        loadCSS("https://cdn.jsdelivr.net/gh/moezx/cdn@3.1.8/css/tw.css");
-    }
-    if (zh == 'tw') {
-        $("#zh_tw").css("display", "none");
-        $("#zh_cn").css("display", "inline-block");
-        loadCSS("https://cdn.jsdelivr.net/gh/moezx/cdn@3.1.8/css/cn.css");
-    }
-}
-*/
+activate_widget();
 
 mashiro_global.ini.normalize();
 loadCSS(mashiro_option.jsdelivr_css_src);
@@ -1413,8 +1343,7 @@ var home = location.href,
                     s.oncanplay = function () {
                         Siren.splay();
                         $('#video-add').show();
-                        _btn.addClass('videolive');
-                        _btn.addClass('haslive');
+                        _btn.addClass('videolive').addClass('haslive');
                     }
                 } else {
                     if ($(this).hasClass('video-pause')) {
@@ -1431,9 +1360,7 @@ var home = location.href,
                 s.onended = function () {
                     $('#bgvideo').attr('src', '');
                     $('#video-add').hide();
-                    _btn.addClass('loadvideo').removeClass('video-pause');
-                    _btn.removeClass('videolive');
-                    _btn.removeClass('haslive');
+                    _btn.addClass('loadvideo').removeClass('video-pause').removeClass('videolive').removeClass('haslive');
                     $('.focusinfo').css({
                         "top": "49.3%"
                     });
@@ -1446,16 +1373,23 @@ var home = location.href,
         AH: function () {
             if (Poi.windowheight == 'auto') {
                 if ($('h1.main-title').length > 0) {
-                    var _height = $(window).height();
+                    var _height = $(window).height() + "px";
                     $('#centerbg').css({
                         'height': _height
                     });
                     $('#bgvideo').css({
                         'min-height': _height
                     });
+                    window.resizeFlag = null;
                     $(window).resize(function () {
-                        Siren.AH();
-                    });
+
+                        if (resizeFlag = null) {
+                            clearTimeout(resizeFlag);
+                        }
+                        resizeFlag = setTimeout(function () {
+                            Siren.AH();
+                        }, 1000);
+                    })
                 }
             } else {
                 $('.headertop').addClass('headertop-bar');
@@ -1506,11 +1440,135 @@ var home = location.href,
             $('.js-toggle-search').on('click', function () {
                 $('.js-toggle-search').toggleClass('is-active');
                 $('.js-search').toggleClass('is-visible');
+                $('html').css('overflow-y', 'hidden');
+                if (mashiro_option.live_search) {
+                    var QueryStorage = [];
+                    search_a(Poi.api + "sakura/v1/cache_search/json");
+
+                    var otxt = addComment.I("search-input"),
+                        list = addComment.I("PostlistBox"),
+                        Record = list.innerHTML,
+                        searchFlag = null;
+                    otxt.oninput = function () {
+                        if (searchFlag = null) {
+                            clearTimeout(searchFlag);
+                        }
+                        searchFlag = setTimeout(function () {
+                            query(QueryStorage, otxt.value, Record);
+                            div_href();
+                        }, 250);
+                    };
+
+                    function search_a(val) {
+                        if (sessionStorage.getItem('search') != null) {
+                            QueryStorage = JSON.parse(sessionStorage.getItem('search'));
+                            query(QueryStorage, $("#search-input").val(), Record);
+                            div_href();
+                        } else {
+                            var _xhr = new XMLHttpRequest();
+                            _xhr.open("GET", val, true)
+                            _xhr.send();
+                            _xhr.onreadystatechange = function () {
+                                if (_xhr.readyState == 4 && _xhr.status == 200) {
+                                    json = _xhr.responseText;
+                                    if (json != "") {
+                                        sessionStorage.setItem('search', json);
+                                        QueryStorage = JSON.parse(json);
+                                        query(QueryStorage, otxt.value, Record);
+                                        div_href();
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (!Object.values) Object.values = function (obj) {
+                        if (obj !== Object(obj))
+                            throw new TypeError('Object.values called on a non-object');
+                        var val = [],
+                            key;
+                        for (key in obj) {
+                            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                                val.push(obj[key]);
+                            }
+                        }
+                        return val;
+                    }
+
+                    function Cx(arr, q) {
+                        q = q.replace(q, "^(?=.*?" + q + ").+$").replace(/\s/g, ")(?=.*?");
+                        i = arr.filter(
+                            v => Object.values(v).some(
+                                v => new RegExp(q + '').test(v)
+                            )
+                        );
+                        return i;
+                    }
+
+                    function div_href() {
+                        $(".ins-selectable").each(function () {
+                            $(this).click(function () {
+                                $("#Ty").attr('href', $(this).attr('href'));
+                                $("#Ty").click();
+                                $(".search_close").click();
+                            });
+                        });
+                    }
+
+                    function search_result(keyword, link, fa, title, iconfont, comments, text) {
+                        if (keyword) {
+                            var s = keyword.trim().split(" "),
+                                a = title.indexOf(s[s.length - 1]),
+                                b = text.indexOf(s[s.length - 1]);
+                            title = a < 60 ? title.slice(0, 80) : title.slice(a - 30, a + 30);
+                            title = title.replace(s[s.length - 1], '<mark class="search-keyword"> ' + s[s.length - 1].toUpperCase() + ' </mark>');
+                            text = b < 60 ? text.slice(0, 80) : text.slice(b - 30, b + 30);
+                            text = text.replace(s[s.length - 1], '<mark class="search-keyword"> ' + s[s.length - 1].toUpperCase() + ' </mark>');
+                        }
+                        return '<div class="ins-selectable ins-search-item" href="' + link + '"><header><i class="fa fa-' + fa + '" aria-hidden="true"></i>' + title + '<i class="iconfont icon-' + iconfont + '"> ' + comments + '</i>' + '</header><p class="ins-search-preview">' + text + '</p></div>';
+                    }
+
+                    function query(B, A, z) {
+                        var x, v, s, y = "",
+                            w = "",
+                            u = "",
+                            r = "",
+                            p = "",
+                            F = "",
+                            H = "",
+                            G = '<section class="ins-section"><header class="ins-section-header">',
+                            D = "</section>",
+                            E = "</header>",
+                            C = Cx(B, A.trim());
+                        for (x = 0; x < Object.keys(C).length; x++) {
+                            H = C[x];
+                            switch (v = H.type) {
+                                case "post":
+                                    w = w + search_result(A, H.link, "file", H.title, "mark", H.comments, H.text);
+                                    break;
+                                case "tag":
+                                    p = p + search_result("", H.link, "tag", H.title, "none", "", "");
+                                    break;
+                                case "category":
+                                    r = r + search_result("", H.link, "folder", H.title, "none", "", "");
+                                    break;
+                                case "page":
+                                    u = u + search_result(A, H.link, "file", H.title, "mark", H.comments, H.text);
+                                    break;
+                                case "comment":
+                                    F = F + search_result(A, H.link, "comment", H.title, "none", "", H.text);
+                                    break
+                            }
+                        }
+                        w && (y = y + G + " Writing " + E + w + D), u && (y = y + G + " page " + E + u + D), r && (y = y + G + " classification " + E + r + D), p && (y = y + G + " label " + E + p + D), F && (y = y + G + " comment " + E + F + D), s = addComment.I("PostlistBox"), s.innerHTML = y
+                    }
+                }
             });
             $('.search_close').on('click', function () {
                 if ($('.js-search').hasClass('is-visible')) {
                     $('.js-toggle-search').toggleClass('is-active');
                     $('.js-search').toggleClass('is-visible');
+                    $('html').css('overflow-y', 'unset');
                 }
             });
             $('#show-nav').on('click', function () {
@@ -1527,51 +1585,72 @@ var home = location.href,
             });
         },
         NH: function () {
-            var h1 = 0,
-                h2 = 50,
-                ss = $(document).scrollTop();
+            var h1 = 0;
             $(window).scroll(function () {
-                var s = $(document).scrollTop();
+                var s = $(document).scrollTop(),
+                    cached = $('.site-header');
                 if (s == h1) {
-                    $('.site-header').removeClass('yya');
+                    cached.removeClass('yya');
                 }
                 if (s > h1) {
-                    $('.site-header').addClass('yya');
-                }
-                if (s > h2) {
-                    $('.site-header').addClass('gizle');
-                    if (s > ss) {
-                        $('.site-header').removeClass('sabit');
-                    } else {
-                        $('.site-header').addClass('sabit');
-                    }
-                    ss = s;
+                    cached.addClass('yya');
                 }
             });
         },
         XLS: function () {
             $body = (window.opera) ? (document.compatMode == "CSS1Compat" ? $('html') : $('body')) : $('html,body');
+            var load_post_timer;
+            var intersectionObserver = new IntersectionObserver(function (entries) {
+                if (entries[0].intersectionRatio <= 0) return;
+                var page_next = $('#pagination a').attr("href");
+                var load_key = addComment.I("add_post_time");
+                if (page_next != undefined && load_key) {
+                    var load_time = addComment.I("add_post_time").title;
+                    if (load_time != "233") {
+                        console.log("%c Countdown when auto loading %c", "background:#9a9da2; color:#ffffff; border-radius:4px;", "", "", load_time);
+                        load_post_timer = setTimeout(function () {
+                            load_post();
+                        }, load_time * 1000);
+                    }
+                }
+            });
+            intersectionObserver.observe(
+                document.querySelector('.footer-device')
+            );
             $('body').on('click', '#pagination a', function () {
-                $(this).addClass("loading").text("");
+                clearTimeout(load_post_timer);
+                load_post();
+                return false;
+            });
+
+            function load_post() {
+                $('#pagination a').addClass("loading").text("");
                 $.ajax({
                     type: "POST",
-                    url: $(this).attr("href") + "#main",
+                    url: $('#pagination a').attr("href") + "#main",
                     success: function (data) {
                         result = $(data).find("#main .post");
                         nextHref = $(data).find("#pagination a").attr("href");
                         $("#main").append(result.fadeIn(500));
                         $("#pagination a").removeClass("loading").text("Previous");
+                        $('#add_post span').removeClass("loading").text("");
                         lazyload();
-                        mashiro_global.post_list_show_animation.ini(50);
+                        post_list_show_animation();
                         if (nextHref != undefined) {
                             $("#pagination a").attr("href", nextHref);
+
+                            var tempScrollTop = $(window).scrollTop();
+                            $(window).scrollTop(tempScrollTop);
+                            $body.animate({
+                                scrollTop: tempScrollTop + 300
+                            }, 666)
                         } else {
-                            $("#pagination").html("<span>I’m glad you flipped here, but it’s really gone...</span>");
+                            $("#pagination").html("<span>Glad you returned here, but it's really gone...</span>");
                         }
                     }
                 });
                 return false;
-            });
+            }
         },
         XCS: function () {
             var __cancel = jQuery('#cancel-comment-reply-link'),
@@ -1582,7 +1661,7 @@ var home = location.href,
                     url: Poi.ajaxurl,
                     data: jQuery(this).serialize() + "&action=ajax_comment",
                     type: jQuery(this).attr('method'),
-                    beforeSend: addComment.createButterbar("Committing..."),
+                    beforeSend: addComment.createButterbar("Commiting..."),
                     error: function (request) {
                         var t = addComment;
                         t.createButterbar(request.responseText);
@@ -1752,6 +1831,7 @@ var home = location.href,
                 $('body,html').animate({
                     scrollTop: 0,
                 }, scroll_top_duration);
+                return false;
             });
         }
     }
@@ -1808,6 +1888,7 @@ $(function () {
             if ($('.js-search.is-visible').length > 0) {
                 $('.js-toggle-search').toggleClass('is-active');
                 $('.js-search').toggleClass('is-visible');
+                $('html').css('overflow-y', 'unset');
             }
         });
         window.addEventListener('popstate', function (e) {
@@ -1815,6 +1896,7 @@ $(function () {
             Siren.PE();
             Siren.CE();
             timeSeriesReload(true);
+            post_list_show_animation();
         }, false);
     }
     $.fn.postLike = function () {
@@ -1840,7 +1922,7 @@ $(function () {
         $(this).postLike();
     });
     console.log("%c Nebulino %c", "background:#24272A; color:#ffffff", "", "https://nebulino.cloud/");
-    console.log("%c Github %c", "background:#24272A; color:#ffffff", "", "https://github.com/nebulino");
+    console.log("%c Github %c", "background:#24272A; color:#ffffff", "", "https://github.com/Nebulino");
 });
 var isWebkit = navigator.userAgent.toLowerCase().indexOf('webkit') > -1,
     isOpera = navigator.userAgent.toLowerCase().indexOf('opera') > -1,
@@ -1852,7 +1934,7 @@ if ((isWebkit || isOpera || isIe) && document.getElementById && window.addEventL
         if (!(/^[A-z0-9_-]+$/.test(id))) {
             return;
         }
-        element = document.getElementById(id);
+        element = addComment.I(id);
         if (element) {
             if (!(/^(?:a|select|input|button|textarea)$/i.test(element.tagName))) {
                 element.tabIndex = -1;
